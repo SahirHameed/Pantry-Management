@@ -5,7 +5,7 @@ const LLAMA_API_URL = "https://api.llama-api.com/chat/completions";
 export const fetchRecipesFromApi = async (ingredients) => {
   const headers = {
     "Content-Type": "application/json",
-    Authorization: `Bearer ${process.env.NEXT_PUBLIC_OPENAI_KEY}`,
+    Authorization: `Bearer ${process.env.NEXT_PUBLIC_LLAMA_API_KEY}`,
     "Access-Control-Allow-Origin": "*",
   };
 

@@ -1,10 +1,33 @@
 "use client";
 import { useState, useEffect } from "react";
-import { auth, provider, signInWithPopup, signOut, firestore } from "../lib/firebase";
-import { Box, Typography, Button, AppBar, Toolbar, Container, CssBaseline, Paper } from "@mui/material";
+import {
+  auth,
+  provider,
+  signInWithPopup,
+  signOut,
+  firestore,
+} from "../lib/firebase";
+import {
+  Box,
+  Typography,
+  Button,
+  AppBar,
+  Toolbar,
+  Container,
+  CssBaseline,
+  Paper,
+} from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
-import { collection, query, getDocs, doc, getDoc, setDoc } from "firebase/firestore";
-import { fetchRecipesFromApi } from "../components/api"; // Adjust the import path as needed
+import {
+  collection,
+  query,
+  getDocs,
+  doc,
+  getDoc,
+  setDoc,
+  deleteDoc,
+} from "firebase/firestore";
+import { fetchRecipesFromApi } from "../components/api";
 import AddItemModal from "../components/AddItemModal";
 import InventoryTable from "../components/InventoryTable";
 
@@ -16,6 +39,7 @@ const Home = () => {
   const [itemCategory, setItemCategory] = useState("");
   const [itemUnit, setItemUnit] = useState("");
   const [itemQuantity, setItemQuantity] = useState(1);
+  const [editingItem, setEditingItem] = useState(null);
   const [recipes, setRecipes] = useState([]);
   const [loading, setLoading] = useState(false);
 
@@ -64,7 +88,60 @@ const Home = () => {
     }
   };
 
-  const handleAddItem = async () => {
+ const capitalizeFirstLetter = (string) => {
+   return string.charAt(0).toUpperCase() + string.slice(1);
+ };
+
+ const handleAddItem = async () => {
+   if (!itemName.trim() || !itemCategory || !itemUnit) {
+     return;
+   }
+   try {
+     const uid = user.uid;
+     const capitalizedItemName = itemName
+       .split(" ")
+       .map(capitalizeFirstLetter)
+       .join(" ");
+     const docRef = doc(
+       collection(firestore, `users/${uid}/inventory`),
+       capitalizedItemName
+     );
+     const docSnap = await getDoc(docRef);
+
+     if (docSnap.exists()) {
+       const { quantity } = docSnap.data();
+       await setDoc(docRef, {
+         name: capitalizedItemName,
+         category: itemCategory,
+         unit: itemUnit,
+         quantity: quantity + itemQuantity,
+       });
+     } else {
+       await setDoc(docRef, {
+         name: capitalizedItemName,
+         category: itemCategory,
+         unit: itemUnit,
+         quantity: itemQuantity,
+       });
+     }
+
+     await updateInventory(uid);
+     handleClose();
+   } catch (error) {
+     console.error("Error adding item:", error);
+   }
+ };
+
+  const handleEditItem = async (item) => {
+    setEditingItem(item);
+    setItemName(item.name);
+    setItemCategory(item.category);
+    setItemUnit(item.unit);
+    setItemQuantity(item.quantity);
+    setOpen(true);
+  };
+
+  const handleSaveEditItem = async () => {
     if (!itemName.trim() || !itemCategory || !itemUnit) {
       return;
     }
@@ -72,31 +149,70 @@ const Home = () => {
       const uid = user.uid;
       const docRef = doc(
         collection(firestore, `users/${uid}/inventory`),
-        itemName
+        editingItem.id
       );
-      const docSnap = await getDoc(docRef);
-
-      if (docSnap.exists()) {
-        const { quantity } = docSnap.data();
-        await setDoc(docRef, {
-          name: itemName,
-          category: itemCategory,
-          unit: itemUnit,
-          quantity: quantity + itemQuantity,
-        });
-      } else {
-        await setDoc(docRef, {
-          name: itemName,
-          category: itemCategory,
-          unit: itemUnit,
-          quantity: itemQuantity,
-        });
-      }
+      await setDoc(docRef, {
+        name: itemName,
+        category: itemCategory,
+        unit: itemUnit,
+        quantity: itemQuantity,
+      });
 
       await updateInventory(uid);
       handleClose();
     } catch (error) {
-      console.error("Error adding item:", error);
+      console.error("Error saving edited item:", error);
+    }
+  };
+
+  const handleDeleteItem = async (id) => {
+    try {
+      const uid = user.uid;
+      const docRef = doc(collection(firestore, `users/${uid}/inventory`), id);
+      await deleteDoc(docRef);
+      await updateInventory(uid);
+    } catch (error) {
+      console.error("Error deleting item:", error);
+    }
+  };
+
+  const handleIncrement = async (id) => {
+    try {
+      const uid = user.uid;
+      const docRef = doc(collection(firestore, `users/${uid}/inventory`), id);
+      const docSnap = await getDoc(docRef);
+
+      if (docSnap.exists()) {
+        const { quantity, ...data } = docSnap.data();
+        await setDoc(docRef, {
+          ...data,
+          quantity: quantity + 1,
+        });
+        await updateInventory(uid);
+      }
+    } catch (error) {
+      console.error("Error incrementing quantity:", error);
+    }
+  };
+
+  const handleDecrement = async (id) => {
+    try {
+      const uid = user.uid;
+      const docRef = doc(collection(firestore, `users/${uid}/inventory`), id);
+      const docSnap = await getDoc(docRef);
+
+      if (docSnap.exists()) {
+        const { quantity, ...data } = docSnap.data();
+        if (quantity > 1) {
+          await setDoc(docRef, {
+            ...data,
+            quantity: quantity - 1,
+          });
+          await updateInventory(uid);
+        }
+      }
+    } catch (error) {
+      console.error("Error decrementing quantity:", error);
     }
   };
 
@@ -110,6 +226,7 @@ const Home = () => {
 
   const handleClose = () => {
     setOpen(false);
+    setEditingItem(null);
   };
 
   const fetchRecipes = async () => {
@@ -118,14 +235,9 @@ const Home = () => {
       name: item.name,
       amount: item.quantity,
     }));
-    try {
-      const fetchedRecipes = await fetchRecipesFromApi(ingredients);
-      setRecipes(fetchedRecipes);
-    } catch (error) {
-      console.error("Error fetching recipes:", error);
-    } finally {
-      setLoading(false);
-    }
+    const fetchedRecipes = await fetchRecipesFromApi(ingredients);
+    setRecipes(fetchedRecipes);
+    setLoading(false);
   };
 
   const HomeScreen = (
@@ -228,7 +340,13 @@ const Home = () => {
               {loading ? "Generating..." : "Recipes"}
             </Button>
           </Box>
-          <InventoryTable inventory={inventory} />
+          <InventoryTable
+            inventory={inventory}
+            onEdit={handleEditItem}
+            onDelete={handleDeleteItem}
+            onIncrement={handleIncrement}
+            onDecrement={handleDecrement}
+          />
           {recipes.length > 0 && (
             <Box mt={4} width="100%">
               <Typography variant="h4" mb={2}>
@@ -254,7 +372,7 @@ const Home = () => {
         <AddItemModal
           open={open}
           handleClose={handleClose}
-          handleAddItem={handleAddItem}
+          handleAddItem={editingItem ? handleSaveEditItem : handleAddItem}
           itemName={itemName}
           setItemName={setItemName}
           itemCategory={itemCategory}
@@ -277,4 +395,3 @@ const Home = () => {
 };
 
 export default Home;
-
