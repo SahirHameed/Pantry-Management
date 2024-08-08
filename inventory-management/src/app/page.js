@@ -1,57 +1,12 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
-import {
-  auth,
-  provider,
-  signInWithPopup,
-  signOut,
-  firestore,
-} from "../lib/firebase";
-import {
-  Box,
-  Typography,
-  Modal,
-  Stack,
-  TextField,
-  Button,
-  IconButton,
-  Paper,
-  AppBar,
-  Toolbar,
-  Container,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  MenuItem,
-  Select,
-  FormControl,
-  InputLabel,
-  CssBaseline,
-} from "@mui/material";
+import { useState, useEffect } from "react";
+import { auth, provider, signInWithPopup, signOut, firestore } from "../lib/firebase";
+import { Box, Typography, Button, AppBar, Toolbar, Container, CssBaseline } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
-import CloseIcon from "@mui/icons-material/Close";
-import {
-  collection,
-  query,
-  getDocs,
-  doc,
-  getDoc,
-  deleteDoc,
-  setDoc,
-} from "firebase/firestore";
-
-const categories = [
-  "Grains",
-  "Vegetables",
-  "Fruits",
-  "Dairy",
-  "Protein",
-  "Others",
-];
-const units = ["kg", "grams", "liters", "units", "packs", "dozens"];
+import { collection, query, getDocs, doc, getDoc, setDoc } from "firebase/firestore";
+import { fetchRecipes as fetchRecipesFromApi } from '../components/api';
+import AddItemModal from '../components/AddItemModal';
+import InventoryTable from '../components/InventoryTable';
 
 const Home = () => {
   const [user, setUser] = useState(null);
@@ -61,6 +16,8 @@ const Home = () => {
   const [itemCategory, setItemCategory] = useState("");
   const [itemUnit, setItemUnit] = useState("");
   const [itemQuantity, setItemQuantity] = useState(1);
+  const [recipes, setRecipes] = useState([]);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
@@ -122,12 +79,14 @@ const Home = () => {
       if (docSnap.exists()) {
         const { quantity } = docSnap.data();
         await setDoc(docRef, {
+          name: itemName,
           category: itemCategory,
           unit: itemUnit,
           quantity: quantity + itemQuantity,
         });
       } else {
         await setDoc(docRef, {
+          name: itemName,
           category: itemCategory,
           unit: itemUnit,
           quantity: itemQuantity,
@@ -151,6 +110,17 @@ const Home = () => {
 
   const handleClose = () => {
     setOpen(false);
+  };
+
+  const fetchRecipes = async () => {
+    setLoading(true);
+    const ingredients = inventory.map((item) => ({
+      name: item.name,
+      amount: item.quantity,
+    }));
+    const fetchedRecipes = await fetchRecipesFromApi(ingredients);
+    setRecipes(fetchedRecipes);
+    setLoading(false);
   };
 
   const HomeScreen = (
@@ -244,114 +214,51 @@ const Home = () => {
             >
               Add Item
             </Button>
-          </Box>
-          <Paper elevation={3} sx={{ width: "100%", borderRadius: "8px" }}>
-            <TableContainer>
-              <Table>
-                <TableHead sx={{ bgcolor: "grey" }}>
-                  <TableRow>
-                    <TableCell>Name</TableCell>
-                    <TableCell>Category</TableCell>
-                    <TableCell>Unit</TableCell>
-                    <TableCell>Quantity</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {inventory.map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell>{item.name}</TableCell>
-                      <TableCell>{item.category}</TableCell>
-                      <TableCell>{item.unit}</TableCell>
-                      <TableCell>{item.quantity}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </Paper>
-        </Box>
-        <Modal open={open} onClose={handleClose}>
-          <Box
-            position="absolute"
-            top="50%"
-            left="50%"
-            width={400}
-            bgcolor="white"
-            border="2px solid #000"
-            boxShadow={24}
-            p={4}
-            display="flex"
-            flexDirection="column"
-            gap={3}
-            sx={{
-              transform: "translate(-50%, -50%)",
-              borderRadius: "8px",
-            }}
-          >
-            <Box
-              display="flex"
-              justifyContent="space-between"
-              alignItems="center"
-            >
-              <Typography variant="h6">Add Item</Typography>
-              <IconButton onClick={handleClose}>
-                <CloseIcon />
-              </IconButton>
-            </Box>
-            <Stack width="100%" spacing={2}>
-              <TextField
-                label="Name"
-                variant="outlined"
-                fullWidth
-                value={itemName}
-                onChange={(e) => setItemName(e.target.value)}
-              />
-              <FormControl fullWidth variant="outlined">
-                <InputLabel>Category</InputLabel>
-                <Select
-                  value={itemCategory}
-                  onChange={(e) => setItemCategory(e.target.value)}
-                  label="Category"
-                >
-                  {categories.map((category) => (
-                    <MenuItem key={category} value={category}>
-                      {category}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              <FormControl fullWidth variant="outlined">
-                <InputLabel>Unit</InputLabel>
-                <Select
-                  value={itemUnit}
-                  onChange={(e) => setItemUnit(e.target.value)}
-                  label="Unit"
-                >
-                  {units.map((unit) => (
-                    <MenuItem key={unit} value={unit}>
-                      {unit}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              <TextField
-                label="Quantity"
-                variant="outlined"
-                fullWidth
-                type="number"
-                value={itemQuantity}
-                onChange={(e) => setItemQuantity(parseInt(e.target.value))}
-              />
-            </Stack>
             <Button
-              variant="contained"
-              sx={{ bgcolor: "black", color: "white" }}
-              onClick={handleAddItem}
+              variant="outlined"
+              sx={{ borderColor: "black", color: "black" }}
+              onClick={fetchRecipes}
+              disabled={loading}
             >
-              Add
+              {loading ? "Generating..." : "Recipes"}
             </Button>
           </Box>
-        </Modal>
+          <InventoryTable inventory={inventory} />
+          {recipes.length > 0 && (
+            <Box mt={4} width="100%">
+              <Typography variant="h4" mb={2}>
+                Recipes
+              </Typography>
+              <Paper elevation={3} sx={{ padding: 2 }}>
+                {recipes.map((recipe, index) => (
+                  <Box key={index} mb={4}>
+                    <Typography variant="h5" gutterBottom>
+                      {recipe.title}
+                    </Typography>
+                    {recipe.steps.map((step, stepIndex) => (
+                      <Typography key={stepIndex} paragraph>
+                        {step}
+                      </Typography>
+                    ))}
+                  </Box>
+                ))}
+              </Paper>
+            </Box>
+          )}
+        </Box>
+        <AddItemModal
+          open={open}
+          handleClose={handleClose}
+          handleAddItem={handleAddItem}
+          itemName={itemName}
+          setItemName={setItemName}
+          itemCategory={itemCategory}
+          setItemCategory={setItemCategory}
+          itemUnit={itemUnit}
+          setItemUnit={setItemUnit}
+          itemQuantity={itemQuantity}
+          setItemQuantity={setItemQuantity}
+        />
       </Container>
       <Box component="footer" bgcolor="black" color="white" p={2} mt="auto">
         <Typography variant="body1" textAlign="center">
@@ -365,3 +272,4 @@ const Home = () => {
 };
 
 export default Home;
+
