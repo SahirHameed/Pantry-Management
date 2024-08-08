@@ -1,12 +1,12 @@
 "use client";
 import { useState, useEffect } from "react";
 import { auth, provider, signInWithPopup, signOut, firestore } from "../lib/firebase";
-import { Box, Typography, Button, AppBar, Toolbar, Container, CssBaseline } from "@mui/material";
+import { Box, Typography, Button, AppBar, Toolbar, Container, CssBaseline, Paper } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import { collection, query, getDocs, doc, getDoc, setDoc } from "firebase/firestore";
-import { fetchRecipes as fetchRecipesFromApi } from '../components/api';
-import AddItemModal from '../components/AddItemModal';
-import InventoryTable from '../components/InventoryTable';
+import { fetchRecipesFromApi } from "../components/api"; // Adjust the import path as needed
+import AddItemModal from "../components/AddItemModal";
+import InventoryTable from "../components/InventoryTable";
 
 const Home = () => {
   const [user, setUser] = useState(null);
@@ -118,9 +118,14 @@ const Home = () => {
       name: item.name,
       amount: item.quantity,
     }));
-    const fetchedRecipes = await fetchRecipesFromApi(ingredients);
-    setRecipes(fetchedRecipes);
-    setLoading(false);
+    try {
+      const fetchedRecipes = await fetchRecipesFromApi(ingredients);
+      setRecipes(fetchedRecipes);
+    } catch (error) {
+      console.error("Error fetching recipes:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const HomeScreen = (

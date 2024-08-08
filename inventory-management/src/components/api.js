@@ -1,49 +1,44 @@
-// src/api.js
-const OPENROUTER_API_KEY = process.env.NEXT_PUBLIC_OPENAI_KEY;
+"use server";
 
-console.log("Loaded API Key:", OPENROUTER_API_KEY);
+const LLAMA_API_URL = "https://api.llama-api.com/chat/completions";
 
-if (!OPENROUTER_API_KEY) {
-  throw new Error(
-    "The OPENROUTER_API_KEY environment variable is missing or empty."
-  );
-}
+export const fetchRecipesFromApi = async (ingredients) => {
+  const headers = {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${process.env.NEXT_PUBLIC_OPENAI_KEY}`,
+    "Access-Control-Allow-Origin": "*",
+  };
 
-export const fetchRecipes = async (pantryItems) => {
+  const prompt = `Create detailed recipes using the following ingredients: ${ingredients
+    .map((item) => `${item.amount} ${item.name}`)
+    .join(", ")}. Each recipe should include:
+  1. A title.
+  2. A brief description.
+  3. A list of ingredients with quantities.
+  4. Detailed step-by-step cooking instructions.`;
+
   try {
-    const response = await fetch(
-      "https://openrouter.ai/api/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "meta-llama/llama-3.1-8b-instruct",
-          messages: [
-            {
-              role: "user",
-              content: `Generate at least 3 recipes using the following ingredients: ${pantryItems
-                .map((item) => `${item.amount} ${item.name}`)
-                .join(", ")} and explain them in 5 lines.`,
-            },
-          ],
-        }),
-      }
-    );
+    const response = await fetch(LLAMA_API_URL, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        messages: [{ role: "user", content: prompt }],
+      }),
+    });
+
+    // Log the raw response text
+    const responseText = await response.text();
+    console.log("Raw response:", responseText);
 
     if (!response.ok) {
-      const errorDetails = await response.clone().json();
-      console.error("Error details:", errorDetails);
+      console.error("Error details:", responseText);
       throw new Error(
-        `HTTP error! status: ${response.status}, details: ${JSON.stringify(
-          errorDetails
-        )}`
+        `HTTP error! status: ${response.status}, details: ${responseText}`
       );
     }
 
-    const data = await response.json();
+    // Parse the response as JSON
+    const data = JSON.parse(responseText);
     const rawRecipes = data.choices[0].message.content;
 
     const recipeSections = rawRecipes
@@ -62,8 +57,8 @@ export const fetchRecipes = async (pantryItems) => {
     });
 
     return formattedRecipes;
-  } catch (error) {
-    console.error("Error generating recipes: ", error);
-    return [];
+  } catch (e) {
+    console.log(e);
+    throw e;
   }
 };
