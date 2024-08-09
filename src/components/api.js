@@ -30,13 +30,6 @@ export const fetchRecipesFromApi = async (ingredients) => {
     const responseText = await response.text();
     console.log("Raw response:", responseText);
 
-    if (!response.ok) {
-      console.error("Error details:", responseText);
-      throw new Error(
-        `HTTP error! status: ${response.status}, details: ${responseText}`
-      );
-    }
-
     // Parse the response as JSON
     const data = JSON.parse(responseText);
     const rawRecipes = data.choices[0].message.content;
