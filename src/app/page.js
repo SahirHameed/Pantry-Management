@@ -2,7 +2,8 @@
 import { useState, useEffect } from "react";
 import {
   auth,
-  provider,
+  googleProvider,
+  githubProvider,
   signInWithPopup,
   signOut,
   firestore,
@@ -57,15 +58,26 @@ const Home = () => {
 
   const signInWithGoogle = async () => {
     try {
-      await signInWithPopup(auth, provider);
+      const result = await signInWithPopup(auth, googleProvider);
+      console.log("Google sign-in successful:", result.user);
     } catch (error) {
       console.error("Error signing in with Google:", error);
+    }
+  };
+
+  const signInWithGithub = async () => {
+    try {
+      const result = await signInWithPopup(auth, githubProvider);
+      console.log("GitHub sign-in successful:", result.user);
+    } catch (error) {
+      console.error("Error signing in with GitHub:", error);
     }
   };
 
   const signOutUser = async () => {
     try {
       await signOut(auth);
+      console.log("Sign-out successful");
     } catch (error) {
       console.error("Error signing out:", error);
     }
@@ -88,49 +100,49 @@ const Home = () => {
     }
   };
 
- const capitalizeFirstLetter = (string) => {
-   return string.charAt(0).toUpperCase() + string.slice(1);
- };
+  const capitalizeFirstLetter = (string) => {
+    return string.charAt(0).toUpperCase() + string.slice(1);
+  };
 
- const handleAddItem = async () => {
-   if (!itemName.trim() || !itemCategory || !itemUnit) {
-     return;
-   }
-   try {
-     const uid = user.uid;
-     const capitalizedItemName = itemName
-       .split(" ")
-       .map(capitalizeFirstLetter)
-       .join(" ");
-     const docRef = doc(
-       collection(firestore, `users/${uid}/inventory`),
-       capitalizedItemName
-     );
-     const docSnap = await getDoc(docRef);
+  const handleAddItem = async () => {
+    if (!itemName.trim() || !itemCategory || !itemUnit) {
+      return;
+    }
+    try {
+      const uid = user.uid;
+      const capitalizedItemName = itemName
+        .split(" ")
+        .map(capitalizeFirstLetter)
+        .join(" ");
+      const docRef = doc(
+        collection(firestore, `users/${uid}/inventory`),
+        capitalizedItemName
+      );
+      const docSnap = await getDoc(docRef);
 
-     if (docSnap.exists()) {
-       const { quantity } = docSnap.data();
-       await setDoc(docRef, {
-         name: capitalizedItemName,
-         category: itemCategory,
-         unit: itemUnit,
-         quantity: quantity + itemQuantity,
-       });
-     } else {
-       await setDoc(docRef, {
-         name: capitalizedItemName,
-         category: itemCategory,
-         unit: itemUnit,
-         quantity: itemQuantity,
-       });
-     }
+      if (docSnap.exists()) {
+        const { quantity } = docSnap.data();
+        await setDoc(docRef, {
+          name: capitalizedItemName,
+          category: itemCategory,
+          unit: itemUnit,
+          quantity: quantity + itemQuantity,
+        });
+      } else {
+        await setDoc(docRef, {
+          name: capitalizedItemName,
+          category: itemCategory,
+          unit: itemUnit,
+          quantity: itemQuantity,
+        });
+      }
 
-     await updateInventory(uid);
-     handleClose();
-   } catch (error) {
-     console.error("Error adding item:", error);
-   }
- };
+      await updateInventory(uid);
+      handleClose();
+    } catch (error) {
+      console.error("Error adding item:", error);
+    }
+  };
 
   const handleEditItem = async (item) => {
     setEditingItem(item);

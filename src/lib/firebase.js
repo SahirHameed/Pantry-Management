@@ -2,6 +2,7 @@ import { initializeApp } from "firebase/app";
 import {
   getAuth,
   GoogleAuthProvider,
+  GithubAuthProvider,
   signInWithPopup,
   signOut,
 } from "firebase/auth";
@@ -17,10 +18,14 @@ const firebaseConfig = {
   measurementId: "G-ZMR6XGRBWR",
 };
 
+// Initialize Firebase app
 const app = initializeApp(firebaseConfig);
 
+// Initialize Firebase services
 const auth = getAuth(app);
-const provider = new GoogleAuthProvider();
 const firestore = getFirestore(app);
+const googleProvider = new GoogleAuthProvider();
+const githubProvider = new GithubAuthProvider();
 
-export { auth, provider, signInWithPopup, signOut, firestore };
+// Export the initialized services
+export { auth, googleProvider, githubProvider, signInWithPopup, signOut, firestore };
