@@ -28,8 +28,8 @@ import {
   deleteDoc,
 } from "firebase/firestore";
 import { fetchRecipesFromApi } from "../components/api";
-import AddItemModal from "../components/AddItemModal";
-import InventoryTable from "../components/InventoryTable";
+import AddItemModal from "../components/additemmodel";
+import InventoryTable from "../components/inventorytable";
 
 const Home = () => {
   const [user, setUser] = useState(null);
