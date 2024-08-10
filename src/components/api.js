@@ -17,24 +17,39 @@ export const fetchRecipesFromApi = async (ingredients) => {
   3. A list of ingredients with quantities.
   4. Detailed step-by-step cooking instructions.`;
 
+  let fullResponse = "";
+  let continuationPrompt = prompt;
+  let stopRequest = false;
+
   try {
-    const response = await fetch(LLAMA_API_URL, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
-        messages: [{ role: "user", content: prompt }],
-      }),
-    });
+    while (!stopRequest) {
+      const response = await fetch(LLAMA_API_URL, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          messages: [{ role: "user", content: continuationPrompt }],
+          max_tokens: 1500, // Increase this if the API allows it
+        }),
+      });
 
-    // Log the raw response text
-    const responseText = await response.text();
-    console.log("Raw response:", responseText);
+      const data = await response.json();
+      const responseText = data.choices[0].message.content;
 
-    // Parse the response as JSON
-    const data = JSON.parse(responseText);
-    const rawRecipes = data.choices[0].message.content;
+      // Append the received text to the full response
+      fullResponse += responseText;
 
-    const recipeSections = rawRecipes
+      // Check if the response was cut off
+      if (data.choices[0].finish_reason === "max_token") {
+        // Prepare to continue the request
+        continuationPrompt = "Continue the previous response.";
+      } else {
+        // Exit the loop if the response is complete
+        stopRequest = true;
+      }
+    }
+
+    // Process the full response
+    const recipeSections = fullResponse
       .split(/Recipe \d+:/)
       .filter((section) => section.trim() !== "");
     const formattedRecipes = recipeSections.map((section) => {
