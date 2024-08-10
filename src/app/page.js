@@ -29,7 +29,7 @@ import {
 } from "firebase/firestore";
 import { fetchRecipesFromApi } from "../components/api";
 import AddItemModal from "../components/additemmodel";
-import InventoryTable from "src/components/inventorytable";
+import InventoryTable from "../components/inventorytable";
 
 const Home = () => {
   const [user, setUser] = useState(null);
